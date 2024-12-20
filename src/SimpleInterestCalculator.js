@@ -14,7 +14,7 @@ import {
   InputAdornment,
 } from "@mui/material";
 import dayjs from "dayjs";
-import { principalInWords, displayFormattedDate } from "./utility";
+import { principalInWords, displayFormattedDate, calculateInterestForDays, getDaysDetails } from "./utility";
 import YearlyCompoundBreakdown from "./YearlyCompoundBreakdown";
 import DisplayInterest from "./DisplayInterest";
 
@@ -22,12 +22,36 @@ const InterestCalculator = () => {
   const [calculationType, setCalculationType] = useState("simple"); // "simple" or "compound"
   const [principal, setPrincipal] = useState("");
   const [startDate, setStartDate] = useState("");
-  const [interest, setInterest] = useState(null);
+  const [completeMonthsInterest, setCompleteMonthsInterest] = useState(null);
+  const [extraDaysInterest, setExtraDaysInterest] = useState(null);
   const [totalMonths, setTotalMonths] = useState(null);
   const [totalDays, setTotalDays] = useState(null);
   const [totalAmount, setTotalAmount] = useState(null);
   const [interestPerMonth, setInterestPerMonth] = useState(null);
   const [yearlyCompoundData, setYearlyCompoundData] = useState([]);
+
+  const calculateSimpleInterest = (P, rate, months) => {
+    const simpleInterest = (P * rate * months) / 100;
+    const totalAmount = P + simpleInterest;
+    return { simpleInterest, totalAmount };
+  };
+
+  const calculateCompoundInterest = (P, rate, months) => {
+    const compoundInterest = P * Math.pow(1 + rate / 100, months) - P;
+    const totalAmount = P + compoundInterest;
+
+    // Calculate year-wise breakdown
+    const yearlyData = [];
+    let amount = P;
+    for (let year = 1; year <= Math.floor(months / 12); year++) {
+      const yearEndAmount = amount * Math.pow(1 + rate / 100, 12);
+      const yearlyInterest = yearEndAmount - amount;
+      yearlyData.push({ year, interest: yearlyInterest.toFixed(2), total: yearEndAmount.toFixed(2) });
+      amount = yearEndAmount;
+    }
+
+    return { compoundInterest, totalAmount, yearlyData };
+  };
 
   const calculateInterest = (e) => {
     e.preventDefault();
@@ -54,37 +78,38 @@ const InterestCalculator = () => {
     const rate = 2; // 2% per month
     setInterestPerMonth((P * rate) / 100);
 
+    let totalAmount = 0;
     if (calculationType === "simple") {
-      // Simple Interest
-      const simpleInterest = (P * rate * months) / 100;
-      setInterest(simpleInterest);
+      // Simple Interest Calculation
+      const { simpleInterest, totalAmount: calculatedTotalAmount } = calculateSimpleInterest(P, rate, months);
+      setCompleteMonthsInterest(simpleInterest);
       setTotalMonths(months);
-      setTotalAmount(P + simpleInterest);
+      totalAmount = calculatedTotalAmount;
+      setTotalAmount(totalAmount);
       setYearlyCompoundData([]); // Clear compound data for simple interest
     } else if (calculationType === "compound") {
-      // Compound Interest
-      const compoundInterest = P * Math.pow(1 + rate / 100, months) - P;
-      setInterest(compoundInterest);
+      // Compound Interest Calculation
+      const { compoundInterest, totalAmount: calculatedTotalAmount, yearlyData } = calculateCompoundInterest(P, rate, months);
+      setCompleteMonthsInterest(compoundInterest);
       setTotalMonths(months);
-      setTotalAmount(P + compoundInterest);
-
-      // Calculate year-wise breakdown
-      const yearlyData = [];
-      let amount = P;
-      for (let year = 1; year <= Math.floor(months / 12); year++) {
-        const yearEndAmount = amount * Math.pow(1 + rate / 100, 12);
-        const yearlyInterest = yearEndAmount - amount;
-        yearlyData.push({ year, interest: yearlyInterest.toFixed(2), total: yearEndAmount.toFixed(2) });
-        amount = yearEndAmount;
-      }
+      totalAmount = calculatedTotalAmount;
+      setTotalAmount(totalAmount);
       setYearlyCompoundData(yearlyData);
     }
+
+    if (days > 0) {
+      const extraDaysInterest = calculateInterestForDays(P, rate, days);
+      setExtraDaysInterest(extraDaysInterest);
+      totalAmount += extraDaysInterest;
+      setTotalAmount(totalAmount); // Update total amount including extra days
+    }
   };
+
 
   const resetForm = () => {
     setPrincipal("");
     setStartDate("");
-    setInterest(null);
+    setCompleteMonthsInterest(null);
     setTotalMonths(null);
     setTotalAmount(null);
     setYearlyCompoundData([]);
@@ -171,7 +196,7 @@ const InterestCalculator = () => {
           </Grid>
         </Grid>
       </Box>
-      {interest !== null && (
+      {completeMonthsInterest !== null && (
         <Box
           sx={{
             marginTop: "20px",
@@ -185,27 +210,25 @@ const InterestCalculator = () => {
             Calculation Type <strong>{calculationType === "simple" ? "Simple Interest" : "Compound Interest"}</strong>
           </Typography>
           <Typography variant="body1">
-            Total Months <strong>{totalMonths}</strong>
+            Principal Amount <strong>₹ {principal}</strong>
           </Typography>
           <Typography variant="body1">
-            Extra Days <strong>{totalDays}</strong>
+            Time <strong>{totalMonths} months {totalDays} days </strong>
+            <small>({getDaysDetails(totalDays)})</small>
           </Typography>
           <Typography variant="body1">
-            Principal Amount <strong>₹{principal}</strong>
+            Interest Amount <strong>₹ {(completeMonthsInterest + extraDaysInterest)} ({completeMonthsInterest} + {extraDaysInterest})</strong>
           </Typography>
           <Typography variant="body1">
-            Interest Amount <strong>₹{interest.toFixed(2)}</strong>
+            Total Amount <strong>₹ {totalAmount.toFixed(2)}</strong>
           </Typography>
           <Typography variant="body1">
-            Total Amount <strong>₹{totalAmount.toFixed(2)}</strong>
-          </Typography>
-          <Typography variant="body1">
-            Interest Per Month <strong>₹{interestPerMonth}</strong>
+            Interest Per Month <strong>₹ {interestPerMonth}</strong>
           </Typography>
         </Box>
       )}
 
-      {/* <DisplayInterest totalMonths={totalMonths} totalDays={totalDays} principal={principal} interestAmount={interest} totalAmount={totalAmount} interestPerMonth={interestPerMonth} /> */}
+      {/* <DisplayInterest totalMonths={totalMonths} totalDays={totalDays} principal={principal} interestAmount={completeMonthsInterest} totalAmount={totalAmount} interestPerMonth={interestPerMonth} /> */}
 
       <YearlyCompoundBreakdown data={yearlyCompoundData} />
     </Paper>

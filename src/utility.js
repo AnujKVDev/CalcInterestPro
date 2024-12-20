@@ -96,6 +96,57 @@ export const displayFormattedDate = (date) => {
     return d.toDateString();
 };
 
+// Helper function to get the interest adjustment factor based on day ranges
+const getInterestAdjustmentFactor = (days) => {
+    if (days > 3 && days <= 10) {
+        return 0.25; // 1/4th of the base interest
+    } else if (days > 10 && days <= 18) {
+        return 0.5; // 1/2 of the base interest
+    } else if (days > 18 && days <= 24) {
+        return 0.75; // 3/4th of the base interest
+    } else if (days > 24) {
+        return 1; // Full interest
+    } else {
+        return 0; // No interest if days <= 3
+    }
+};
+
+// Function to calculate interest for extra days
+export const calculateInterestForDays = (principal, rate, days) => {
+    const perMonthInterest = (principal * rate) / 100;
+
+    // Get the adjustment factor based on the days range
+    const adjustmentFactor = getInterestAdjustmentFactor(days);
+
+    // Adjust interest accordingly
+    const adjustedInterest = perMonthInterest * adjustmentFactor;
+
+    return adjustedInterest;
+};
+
+// Function to get the message based on days range
+export const getDaysDetails = (days) => {
+    let message = "";
+
+    // Get the adjustment factor based on the days range
+    const adjustmentFactor = getInterestAdjustmentFactor(days);
+
+    // Set the message based on the adjustment factor
+    if (adjustmentFactor === 0) {
+        message = "No Interest Applied";
+    } else if (adjustmentFactor === 0.25) {
+        message = "Quarter Month Interest Applied";
+    } else if (adjustmentFactor === 0.5) {
+        message = "Half Month Interest Applied";
+    } else if (adjustmentFactor === 0.75) {
+        message = "3/4 Month Interest Applied";
+    } else if (adjustmentFactor === 1) {
+        message = "Full Month Interest Applied";
+    }
+
+    return message;
+};
+
 export const principalInWordsHindi = (principal) => {
     const units = [
         "",
